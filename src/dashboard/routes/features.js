@@ -318,6 +318,10 @@ function cleanFeatureValue(name, raw, sanitizeId) {
     const s = sanitizeId(String(v === null || v === undefined ? "" : v));
     return s || null;
   };
+  const idList = (value) =>
+    Array.isArray(value)
+      ? Array.from(new Set(value.map(id).filter(Boolean))).slice(0, 100)
+      : [];
 
   switch (name) {
     case "autoModeration": {
@@ -340,6 +344,8 @@ function cleanFeatureValue(name, raw, sanitizeId) {
           src.bannedWordsEn,
           defaults.bannedWordsEn,
         ),
+        bypassRoleIds: idList(src.bypassRoleIds),
+        bypassChannelIds: idList(src.bypassChannelIds),
       };
     }
 

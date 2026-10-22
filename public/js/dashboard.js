@@ -1746,6 +1746,14 @@
         status.textContent = t(statusKey);
         item.appendChild(label);
         item.appendChild(status);
+        if (!healthy) {
+          var fixButton = document.createElement("button");
+          fixButton.type = "button";
+          fixButton.className = "btn xs btn-ghost";
+          fixButton.dataset.goto = "features";
+          fixButton.textContent = t("overview_health_fix");
+          item.appendChild(fixButton);
+        }
         healthList.appendChild(item);
       });
       if (!activeFeatures.length) {
@@ -2557,6 +2565,66 @@
         });
       }
 
+      const staffRolePreview = document.getElementById("staffRolePreview");
+      if (staffRolePreview) {
+        staffRolePreview.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = t("config_staff_preview_select_role");
+        staffRolePreview.appendChild(placeholder);
+        roles.forEach(function (role) {
+          const option = document.createElement("option");
+          option.value = String(role.id);
+          option.textContent = "@" + role.name;
+          staffRolePreview.appendChild(option);
+        });
+      }
+
+      function updateStaffRoleAccessPreview() {
+        if (!staffRolePreview) return;
+        const roleId = staffRolePreview.value;
+        const generalRoleIds = getSelectedValues(staffSelect);
+
+        function updateResult(selectId, resultId) {
+          const specificRoleIds = getSelectedValues(
+            document.getElementById(selectId),
+          );
+          const effectiveRoleIds = specificRoleIds.length
+            ? specificRoleIds
+            : generalRoleIds;
+          const result = document.getElementById(resultId);
+          if (!result) return;
+
+          const allowed = roleId && effectiveRoleIds.includes(roleId);
+          result.textContent = roleId
+            ? t(
+                allowed
+                  ? "config_staff_preview_allowed"
+                  : "config_staff_preview_denied",
+              )
+            : t("config_staff_preview_select_role");
+          result.classList.toggle("is-allowed", !!allowed);
+          result.classList.toggle("is-denied", !!roleId && !allowed);
+        }
+
+        updateResult("staffRolesModeration", "staffRolePreviewModeration");
+        updateResult("staffRolesTickets", "staffRolePreviewTickets");
+      }
+
+      if (staffRolePreview && !staffRolePreview.dataset.previewBound) {
+        staffRolePreview.dataset.previewBound = "1";
+        staffRolePreview.addEventListener(
+          "change",
+          updateStaffRoleAccessPreview,
+        );
+      }
+      ["staffRolesModeration", "staffRolesTickets"].forEach(function (id) {
+        const select = document.getElementById(id);
+        if (!select || select.dataset.previewBound) return;
+        select.dataset.previewBound = "1";
+        select.addEventListener("change", updateStaffRoleAccessPreview);
+      });
+
       // Role-picker UX: chips + add dropdown, backed by the hidden multi-select.
       function setupRolePicker(multiId) {
         const multi = document.getElementById(multiId);
@@ -2636,6 +2704,7 @@
         function renderAll() {
           renderChips();
           rebuildAddOptions();
+          updateStaffRoleAccessPreview();
         }
 
         if (!addBtn.dataset.bound) {
@@ -2663,6 +2732,7 @@
 
       // Activate role picker for global staff roles.
       setupRolePicker("configStaffRoles");
+      updateStaffRoleAccessPreview();
 
       // Trust config preview (read-only, global)
       const trust = conf && conf.trust ? conf.trust : null;
@@ -3921,6 +3991,7 @@
     [
       document.getElementById("overviewShortcuts"),
       document.getElementById("overviewGlobalShortcuts"),
+      document.getElementById("overviewServerReadiness"),
     ].forEach(function (overviewShortcuts) {
       if (!overviewShortcuts) return;
       overviewShortcuts.addEventListener("click", function (ev) {

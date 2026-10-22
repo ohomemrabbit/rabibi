@@ -11,6 +11,8 @@ const autoModerationFeatureDefaults = {
   muteDurationMinutes: 10,
   bannedWordsPt: "",
   bannedWordsEn: "",
+  bypassRoleIds: [],
+  bypassChannelIds: [],
 };
 const antiSpamFeatureDefaults = {
   enabled: false,

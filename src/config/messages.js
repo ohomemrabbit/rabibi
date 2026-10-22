@@ -92,10 +92,14 @@ module.exports = {
     },
 
     clear: {
-      noPerm: "❌ I do not have permission to manage messages in this channel.",
+      noPerm:
+        "❌ I need permission to view message history and manage messages in this channel.",
+      empty: "ℹ️ No messages were found in this channel.",
       tooOldOrNoPerm:
-        "⚠️ I could not delete messages. They may be too old (14+ days) or I lack permissions.",
+        "⚠️ I could not delete any messages. Check that I can view the channel and manage messages.",
       success: ({ count }) => `🧹 Cleared **${count}** messages.`,
+      partial: ({ count, failed }) =>
+        `🧹 Cleared **${count}** messages; **${failed}** could not be deleted.`,
     },
 
     help: {
@@ -428,10 +432,14 @@ Warnings: **${warnings}/${maxWarnings}**`,
     },
 
     clear: {
-      noPerm: "❌ Não tenho permissão para gerir mensagens neste canal.",
+      noPerm:
+        "❌ Preciso de permissão para ver o histórico e gerir mensagens neste canal.",
+      empty: "ℹ️ Não foram encontradas mensagens neste canal.",
       tooOldOrNoPerm:
-        "⚠️ Não consegui apagar as mensagens. Podem ser antigas (14+ dias) ou posso não ter permissões.",
-      success: ({ count }) => `🧹 Limpei **${count}** mensagens.`,
+        "⚠️ Não consegui apagar mensagens. Confirma se posso ver o canal e gerir mensagens.",
+      success: ({ count }) => `🧹 Apaguei **${count}** mensagens.`,
+      partial: ({ count, failed }) =>
+        `🧹 Apaguei **${count}** mensagens; não foi possível apagar **${failed}**.`,
     },
 
     help: {

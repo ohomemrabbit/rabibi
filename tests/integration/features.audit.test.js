@@ -223,6 +223,12 @@ test("AutoMod rules are deduplicated and bounded before persistence", async () =
           muteDurationMinutes: 0,
           bannedWordsPt: "Termo\ntermo\n" + "x".repeat(80),
           bannedWordsEn: "word",
+          bypassRoleIds: [
+            "222222222222222222",
+            "invalid",
+            "222222222222222222",
+          ],
+          bypassChannelIds: ["333333333333333333", "invalid"],
         },
       }),
     });
@@ -232,6 +238,8 @@ test("AutoMod rules are deduplicated and bounded before persistence", async () =
     assert.equal(value.muteDurationMinutes, 1);
     assert.equal(value.bannedWordsPt, `Termo\n${"x".repeat(64)}`);
     assert.equal(value.bannedWordsEn, "word");
+    assert.deepEqual(value.bypassRoleIds, ["222222222222222222"]);
+    assert.deepEqual(value.bypassChannelIds, ["333333333333333333"]);
     assert.equal(update.value.$addToSet.featuresConfigured, "autoModeration");
   } finally {
     await stopApp(app.server);

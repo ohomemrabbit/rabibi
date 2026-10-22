@@ -28,15 +28,57 @@ function wordLines(value) {
 
 function normalizeAutoModerationConfig(featureConfig) {
   const feature = featureConfig || {};
+  function normalizeIdList(value) {
+    if (!Array.isArray(value)) return [];
+    return Array.from(
+      new Set(
+        value
+          .map((id) => String(id || "").trim())
+          .filter((id) => /^\d{10,32}$/.test(id)),
+      ),
+    );
+  }
   return {
     enabled: feature.enabled === true,
     maxWarnings: Number(feature.maxWarnings) || 3,
     muteDuration: (Number(feature.muteDurationMinutes) || 10) * 60_000,
+    bypassRoleIds: normalizeIdList(feature.bypassRoleIds),
+    bypassChannelIds: normalizeIdList(feature.bypassChannelIds),
     bannedWords: {
       pt: wordLines(feature.bannedWordsPt),
       en: wordLines(feature.bannedWordsEn),
     },
   };
+}
+
+function shouldBypassAutoModeration(message, config) {
+  const bypassChannelIds =
+    config && Array.isArray(config.bypassChannelIds)
+      ? config.bypassChannelIds
+      : [];
+  if (
+    message &&
+    message.channel &&
+    bypassChannelIds.includes(String(message.channel.id))
+  ) {
+    return true;
+  }
+
+  const bypassRoleIds =
+    config && Array.isArray(config.bypassRoleIds) ? config.bypassRoleIds : [];
+  const roleCache =
+    message && message.member && message.member.roles
+      ? message.member.roles.cache
+      : null;
+  if (!roleCache || !bypassRoleIds.length) return false;
+  return bypassRoleIds.some(function (roleId) {
+    if (typeof roleCache.has === "function" && roleCache.has(roleId))
+      return true;
+    return (
+      typeof roleCache.some === "function" &&
+      roleCache.some((role) => String(role && role.id) === roleId)
+    );
+  });
 }
 
 function normalizeMatchText(value) {
@@ -158,6 +200,7 @@ module.exports = async function autoModeration(message, client) {
     );
     const autoConfig = normalizeAutoModerationConfig(featureConfig);
     if (!autoConfig.enabled) return;
+    if (shouldBypassAutoModeration(message, autoConfig)) return;
     const lang = await require("./i18n").getGuildLang(guild.id);
 
     const trustCfg = await getGuildTrustConfig(guild.id);
@@ -367,3 +410,4 @@ module.exports = async function autoModeration(message, client) {
 module.exports.buildBannedWordMatchers = buildBannedWordMatchers;
 module.exports.normalizeAutoModerationConfig = normalizeAutoModerationConfig;
 module.exports.evaluateAutoModeration = evaluateAutoModeration;
+module.exports.shouldBypassAutoModeration = shouldBypassAutoModeration;

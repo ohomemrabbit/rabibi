@@ -150,17 +150,19 @@ module.exports = function buildSlashCommands(_prefix) {
 
   const clear = new SlashCommandBuilder()
     .setName("clear")
-    .setDescription("Bulk delete a number of recent messages in this channel")
+    .setDescription("Delete recent and older messages from this channel")
     .setDescriptionLocalizations({
-      "pt-BR": "Apagar em massa um número de mensagens recentes neste canal",
+      "pt-BR": "Apagar mensagens recentes ou antigas deste canal",
     })
     .addIntegerOption((opt) =>
       opt
         .setName("amount")
-        .setDescription("Number of messages to delete (max 100)")
+        .setDescription("Number of messages to delete (1–100)")
         .setDescriptionLocalizations({
-          "pt-BR": "Número de mensagens a apagar (máx. 100)",
+          "pt-BR": "Número de mensagens a apagar (1–100)",
         })
+        .setMinValue(1)
+        .setMaxValue(100)
         .setRequired(true),
     );
 

@@ -3311,6 +3311,51 @@
                     </div>
                   </div>
                 </details>
+                <section
+                  class="staff-role-preview"
+                  aria-labelledby="staffRolePreviewTitle"
+                >
+                  <div>
+                    <h4
+                      id="staffRolePreviewTitle"
+                      data-i18n="config_staff_preview_title"
+                    >
+                      Pré-visualização de acesso da equipa
+                    </h4>
+                    <p class="hint" data-i18n="config_staff_preview_hint">
+                      Simula os controlos de cargo para comandos de Moderação e
+                      Tickets. Não simula Administradores do Discord nem acesso
+                      OAuth à dashboard.
+                    </p>
+                  </div>
+                  <label class="field" for="staffRolePreview">
+                    <span data-i18n="config_staff_preview_role"
+                      >Cargo a testar</span
+                    >
+                    <select class="select" id="staffRolePreview">
+                      <option
+                        value=""
+                        data-i18n="config_staff_preview_select_role"
+                      >
+                        Seleciona um cargo
+                      </option>
+                    </select>
+                  </label>
+                  <div class="staff-role-preview__results" aria-live="polite">
+                    <div class="staff-role-preview__result">
+                      <span data-i18n="config_staff_preview_moderation"
+                        >Comandos de moderação</span
+                      >
+                      <strong id="staffRolePreviewModeration">—</strong>
+                    </div>
+                    <div class="staff-role-preview__result">
+                      <span data-i18n="config_staff_preview_tickets"
+                        >Comandos de Tickets</span
+                      >
+                      <strong id="staffRolePreviewTickets">—</strong>
+                    </div>
+                  </div>
+                </section>
               </div>
 
               <div class="card subcard" id="config-section-advanced">

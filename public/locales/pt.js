@@ -129,6 +129,15 @@ window.OzarkLocales.pt = {
   config_staff_roles_feature_hint:
     "Os módulos sem cargos específicos usam os cargos gerais da equipa indicados acima.",
   config_staff_roles_overrides: "Cargos específicos por módulo",
+  config_staff_preview_title: "Pré-visualização de acesso da equipa",
+  config_staff_preview_hint:
+    "Verifica se um cargo pode usar os comandos de Moderação ou Tickets. Esta pré-visualização não simula Administradores do Discord nem o acesso OAuth à dashboard.",
+  config_staff_preview_role: "Cargo a testar",
+  config_staff_preview_select_role: "Seleciona um cargo",
+  config_staff_preview_moderation: "Comandos de Moderação",
+  config_staff_preview_tickets: "Comandos de Tickets",
+  config_staff_preview_allowed: "Pode usar",
+  config_staff_preview_denied: "Sem acesso",
   config_rolepicker_add: "Adicionar",
   config_rolepicker_placeholder: "Escolher cargo…",
   config_rolepicker_empty: "Nenhum cargo selecionado.",
@@ -549,6 +558,7 @@ window.OzarkLocales.pt = {
   overview_setup_tickets: "Canal de Tickets configurado",
   overview_setup_features: "Pelo menos uma funcionalidade configurada",
   overview_health_title: "Diagnóstico das funcionalidades ativas",
+  overview_health_fix: "Abrir módulo",
   overview_health_summary:
     "{checked} verificadas · {attention} precisam de atenção",
   overview_health_none: "Não há funcionalidades ativas para diagnosticar.",
@@ -1060,6 +1070,10 @@ window.OzarkLocales.pt = {
   features_automod_mute_duration: "Timeout (minutos)",
   features_automod_words_pt: "Palavras proibidas (PT)",
   features_automod_words_en: "Palavras proibidas (EN)",
+  features_automod_bypass_roles: "Cargos isentos",
+  features_automod_bypass_channels: "Canais isentos",
+  features_automod_bypass_hint:
+    "As mensagens destes cargos ou canais não são verificadas pela moderação automática.",
   features_automod_words_placeholder:
     "Uma palavra ou expressão por linha (máx. 100)",
   features_automod_simulation_label: "Mensagem de simulação",

@@ -126,6 +126,15 @@ window.OzarkLocales.en = {
   config_staff_roles_feature_hint:
     "Modules without specific roles use the general staff roles listed above.",
   config_staff_roles_overrides: "Module-specific roles",
+  config_staff_preview_title: "Staff access preview",
+  config_staff_preview_hint:
+    "Check whether a role can use moderation or ticket commands. This preview does not simulate Discord administrators or dashboard OAuth access.",
+  config_staff_preview_role: "Role to test",
+  config_staff_preview_select_role: "Select a role",
+  config_staff_preview_moderation: "Moderation commands",
+  config_staff_preview_tickets: "Ticket commands",
+  config_staff_preview_allowed: "Can use",
+  config_staff_preview_denied: "No access",
   config_rolepicker_add: "Add",
   config_rolepicker_placeholder: "Select role…",
   config_rolepicker_empty: "No roles selected.",
@@ -531,6 +540,7 @@ window.OzarkLocales.en = {
   overview_setup_tickets: "Ticket channel is configured",
   overview_setup_features: "At least one feature is configured",
   overview_health_title: "Active feature diagnostics",
+  overview_health_fix: "Open module",
   overview_health_summary: "{checked} checked · {attention} need attention",
   overview_health_none: "No active features to diagnose.",
   overview_readiness_error: "Could not load setup and health checks.",
@@ -1033,6 +1043,10 @@ window.OzarkLocales.en = {
   features_automod_mute_duration: "Timeout (minutes)",
   features_automod_words_pt: "Banned words (PT)",
   features_automod_words_en: "Banned words (EN)",
+  features_automod_bypass_roles: "Exempt roles",
+  features_automod_bypass_channels: "Exempt channels",
+  features_automod_bypass_hint:
+    "Messages from these roles or channels are not checked by AutoMod.",
   features_automod_words_placeholder: "One word or phrase per line (up to 100)",
   features_automod_simulation_label: "Simulation message",
   features_automod_simulation_placeholder:

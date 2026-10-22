@@ -143,6 +143,18 @@
           maxLength: 6000,
         },
         {
+          type: "multiRole",
+          name: "bypassRoleIds",
+          label: "features_automod_bypass_roles",
+          hintKey: "features_automod_bypass_hint",
+        },
+        {
+          type: "multiChannel",
+          name: "bypassChannelIds",
+          label: "features_automod_bypass_channels",
+          hintKey: "features_automod_bypass_hint",
+        },
+        {
           type: "simulation",
           name: "simulationMessage",
           label: "features_automod_simulation_label",
@@ -739,9 +751,17 @@
   // Helpers de render
   // -----------------------------
 
-  function optionList(items, selected, noneLabel, isRole) {
-    var html = '<option value="">' + esc(noneLabel) + "</option>";
-    var sel = String(selected == null ? "" : selected);
+  function optionList(items, selected, noneLabel, isRole, multiple) {
+    var html = multiple
+      ? ""
+      : '<option value="">' + esc(noneLabel) + "</option>";
+    var selectedIds = new Set(
+      (Array.isArray(selected) ? selected : [selected])
+        .filter(function (id) {
+          return id != null && id !== "";
+        })
+        .map(String),
+    );
     (items || []).forEach(function (it) {
       if (!it || !it.id) return;
       var id = String(it.id);
@@ -751,7 +771,7 @@
         '<option value="' +
         esc(id) +
         '"' +
-        (sel === id ? " selected" : "") +
+        (selectedIds.has(id) ? " selected" : "") +
         ">" +
         esc(label) +
         "</option>";
@@ -786,8 +806,16 @@
       ? t(field.placeholderKey)
       : field.placeholder;
 
-    if (field.type === "channel" || field.type === "role") {
-      var items = field.type === "channel" ? channels : roles;
+    if (
+      field.type === "channel" ||
+      field.type === "role" ||
+      field.type === "multiChannel" ||
+      field.type === "multiRole"
+    ) {
+      var isRole = field.type === "role" || field.type === "multiRole";
+      var multiple =
+        field.type === "multiChannel" || field.type === "multiRole";
+      var items = isRole ? roles : channels;
       return (
         '<div class="field">' +
         "<label>" +
@@ -795,14 +823,20 @@
         "</label>" +
         '<select class="select" data-field="' +
         esc(field.name) +
-        '">' +
+        '"' +
+        (multiple ? ' multiple size="4"' : "") +
+        ">" +
         optionList(
           items,
           v,
-          t(field.type === "channel" ? "select_channel" : "features_role"),
-          field.type === "role",
+          t(isRole ? "features_role" : "select_channel"),
+          isRole,
+          multiple,
         ) +
         "</select>" +
+        (field.hintKey
+          ? '<p class="hint">' + esc(t(field.hintKey)) + "</p>"
+          : "") +
         "</div>"
       );
     }
@@ -1913,6 +1947,12 @@
 
         if (f.type === "bool") {
           out[f.name] = !!el.checked;
+        } else if (f.type === "multiRole" || f.type === "multiChannel") {
+          out[f.name] = Array.prototype.map
+            .call(el.selectedOptions || [], function (option) {
+              return String(option.value || "").trim();
+            })
+            .filter(Boolean);
         } else if (f.type === "number") {
           var rawNumber = String(el.value || "").trim();
           var n = rawNumber ? Number(rawNumber) : NaN;
