@@ -1530,6 +1530,11 @@
     }
     if (guildKpi) guildKpi.classList.toggle("hidden", !isGlobal);
     if (kpis) kpis.classList.toggle("overview-kpis--server", !isGlobal);
+    const readinessPanel = document.getElementById("overviewServerReadiness");
+    if (readinessPanel) {
+      readinessPanel.classList.toggle("hidden", !state.guildId);
+      if (state.guildId) loadServerReadiness(state.guildId);
+    }
 
     try {
       const overviewPath = state.guildId
@@ -1564,6 +1569,203 @@
         err && err.apiMessage ? err.apiMessage : t("overview_error_generic"),
         { type: "error" },
       );
+    }
+  }
+
+  var readinessRequestSequence = 0;
+
+  async function loadServerReadiness(guildId) {
+    var checklist = document.getElementById("overviewSetupChecklist");
+    var healthList = document.getElementById("overviewFeatureHealth");
+    var summary = document.getElementById("overviewReadinessSummary");
+    if (!checklist || !healthList || !guildId) return;
+
+    var requestSequence = ++readinessRequestSequence;
+    var scopedGuildId = String(guildId);
+    checklist.innerHTML = "";
+    healthList.innerHTML = "";
+    if (summary) summary.textContent = t("loading");
+
+    try {
+      var results = await Promise.all([
+        apiGet("/guilds/" + encodeURIComponent(scopedGuildId) + "/config"),
+        apiGet("/guilds/" + encodeURIComponent(scopedGuildId) + "/meta"),
+        apiGet("/features?guildId=" + encodeURIComponent(scopedGuildId)),
+      ]);
+      if (
+        requestSequence !== readinessRequestSequence ||
+        String(state.guildId || "") !== scopedGuildId
+      )
+        return;
+
+      var config = results[0] && results[0].config ? results[0].config : {};
+      var channels =
+        results[1] && Array.isArray(results[1].channels)
+          ? results[1].channels
+          : [];
+      var roles =
+        results[1] && Array.isArray(results[1].roles) ? results[1].roles : [];
+      var featureData = results[2] || {};
+      var features = featureData.features || {};
+      var configuredFeatures = featureData.configuredFeatures || {};
+      var guild = (state.guilds || []).find(function (item) {
+        return item && String(item.id) === scopedGuildId;
+      });
+      var staffByFeature = config.staffRolesByFeature || {};
+      var staffIds = [].concat(
+        config.staffRoleIds || [],
+        staffByFeature.moderation || [],
+        staffByFeature.tickets || [],
+      );
+      var hasStaffRole = staffIds.some(function (id) {
+        return roles.some(function (role) {
+          return String(role.id) === String(id);
+        });
+      });
+      var hasLogChannel = channels.some(function (channel) {
+        return String(channel.id) === String(config.logChannelId || "");
+      });
+      var configuredCount = Object.keys(configuredFeatures).filter(
+        function (key) {
+          return configuredFeatures[key] === true;
+        },
+      ).length;
+      var canEdit =
+        !!(state.me && state.me.role === "BOT_OWNER") ||
+        !!(state.perms && state.perms.canEditConfig);
+
+      function appendSetupItem(labelText, complete, target) {
+        var item = document.createElement("li");
+        item.className = "overview-readiness__item";
+        var label = document.createElement("span");
+        label.textContent = labelText;
+        var status = document.createElement("span");
+        status.className =
+          "overview-readiness__status " +
+          (complete ? "is-complete" : "is-pending");
+        status.textContent = t(
+          complete ? "overview_check_done" : "overview_check_pending",
+        );
+        item.appendChild(label);
+        item.appendChild(status);
+        if (!complete && target && canEdit) {
+          var button = document.createElement("button");
+          button.type = "button";
+          button.className = "btn xs btn-ghost";
+          button.dataset.goto = target;
+          button.textContent = t("overview_open");
+          item.appendChild(button);
+        }
+        checklist.appendChild(item);
+      }
+
+      appendSetupItem(t("overview_setup_bot"), !!(guild && guild.botPresent));
+      appendSetupItem(t("overview_setup_logs"), hasLogChannel, "config");
+      appendSetupItem(t("overview_setup_staff"), hasStaffRole, "config");
+      appendSetupItem(
+        t("overview_setup_tickets"),
+        !!config.ticketThreadChannelId,
+        "features",
+      );
+      appendSetupItem(
+        t("overview_setup_features"),
+        configuredCount > 0,
+        "features",
+      );
+
+      var activeFeatures = Object.keys(configuredFeatures).filter(
+        function (key) {
+          return (
+            configuredFeatures[key] === true &&
+            features[key] &&
+            features[key].enabled === true
+          );
+        },
+      );
+      var diagnoses = await Promise.allSettled(
+        activeFeatures.map(function (key) {
+          return apiGet(
+            "/features/" +
+              encodeURIComponent(key) +
+              "/diagnose?guildId=" +
+              encodeURIComponent(scopedGuildId),
+          );
+        }),
+      );
+      if (
+        requestSequence !== readinessRequestSequence ||
+        String(state.guildId || "") !== scopedGuildId
+      )
+        return;
+
+      var attentionCount = 0;
+      var featureNames = {
+        messageLogs: t("feature_message_logs_name"),
+        reactionRoles: t("feature_reaction_roles_name"),
+        autoKick: t("feature_auto_kick_name"),
+        autoModeration: t("feature_auto_moderation_name"),
+        antiSpam: t("feature_anti_spam_name"),
+        levels: t("feature_levels_name"),
+        starboard: t("feature_starboard_name"),
+        polls: t("feature_polls_name"),
+        verification: t("feature_verification_name"),
+        tickets: t("feature_tickets_name"),
+        welcome: t("feature_welcome_name"),
+        goodbye: t("feature_goodbye_name"),
+        serverStats: t("feature_server_stats_name"),
+        memes: t("feature_memes_name"),
+        twitch: t("feature_twitch_name"),
+      };
+      diagnoses.forEach(function (result, index) {
+        var key = activeFeatures[index];
+        var diagnosis =
+          result.status === "fulfilled" && result.value
+            ? result.value.diagnosis
+            : null;
+        var statusValue =
+          diagnosis && diagnosis.status ? diagnosis.status : "error";
+        var healthy = statusValue === "ready";
+        if (!healthy) attentionCount += 1;
+
+        var item = document.createElement("li");
+        item.className = "overview-readiness__item";
+        var label = document.createElement("span");
+        label.textContent = featureNames[key] || key;
+        var status = document.createElement("span");
+        status.className =
+          "overview-readiness__status " +
+          (healthy ? "is-complete" : "is-pending");
+        var statusKey =
+          {
+            ready: "features_diagnosis_status_ready",
+            incomplete: "features_diagnosis_status_incomplete",
+            blocked: "features_diagnosis_status_blocked",
+            disabled: "features_diagnosis_status_disabled",
+            error: "features_diagnosis_status_error",
+          }[statusValue] || "features_diagnosis_status_error";
+        status.textContent = t(statusKey);
+        item.appendChild(label);
+        item.appendChild(status);
+        healthList.appendChild(item);
+      });
+      if (!activeFeatures.length) {
+        var empty = document.createElement("li");
+        empty.className = "empty";
+        empty.textContent = t("overview_health_none");
+        healthList.appendChild(empty);
+      }
+      if (summary) {
+        summary.textContent = t("overview_health_summary", {
+          checked: String(activeFeatures.length),
+          attention: String(attentionCount),
+        });
+      }
+    } catch (error) {
+      if (requestSequence !== readinessRequestSequence) return;
+      console.error("Server readiness load error", error);
+      if (summary) summary.textContent = t("overview_readiness_error");
+      checklist.innerHTML = "";
+      healthList.innerHTML = "";
     }
   }
 
@@ -3879,6 +4081,20 @@
     var btnReloadLogs = document.getElementById("btnReloadLogs");
     if (btnReloadLogs) {
       btnReloadLogs.addEventListener("click", function () {
+        var resultsDisclosure = document.getElementById(
+          "logsResultsDisclosure",
+        );
+        if (resultsDisclosure && !resultsDisclosure.open) {
+          resultsDisclosure.open = true;
+          return;
+        }
+        window.OzarkDashboard.loadLogs().catch(function () {});
+      });
+    }
+
+    var logLimitSelect = document.getElementById("logLimit");
+    if (logLimitSelect) {
+      logLimitSelect.addEventListener("change", function () {
         window.OzarkDashboard.loadLogs().catch(function () {});
       });
     }

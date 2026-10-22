@@ -20,6 +20,17 @@ const ticketSchema = new Schema(
     },
 
     subject: { type: String, default: null },
+    assignedToId: { type: String, default: null },
+    assignedToName: { type: String, default: null },
+    priority: {
+      type: String,
+      enum: ["low", "normal", "high", "urgent"],
+      default: "normal",
+    },
+    slaHours: { type: Number, enum: [0, 4, 8, 24, 48, 72], default: 0 },
+    slaDueAt: { type: Date, default: null },
+    metadataUpdatedAt: { type: Date, default: null },
+    metadataUpdatedById: { type: String, default: null },
     createdAt: { type: Date, default: Date.now, index: true },
     closedAt: { type: Date, default: null },
     closedById: { type: String, default: null },

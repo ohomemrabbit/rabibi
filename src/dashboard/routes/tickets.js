@@ -5,6 +5,7 @@ const {
   getGuild,
   getCachedChannel,
   resolveChannel,
+  resolveMember,
 } = require("../../services/guildService");
 
 module.exports = {
@@ -157,6 +158,106 @@ function registerTicketsRoutes(opts) {
         return res.json({ ok: true, items, nextCursor });
       } catch (err) {
         return sendServerError(res, "GET /api/tickets", err);
+      }
+    },
+  );
+
+  app.post(
+    "/api/tickets/:ticketId/manage",
+    requireDashboardAuth,
+    canManageTickets,
+    guardGuildBodyOptional,
+    guardGuildQueryOptional,
+    rateLimit({ windowMs: 60_000, max: 60, keyPrefix: "rl:tickets:manage:" }),
+    async (req, res) => {
+      try {
+        const { TicketModel } = _getModels ? _getModels() : {};
+        if (!TicketModel)
+          return res
+            .status(503)
+            .json({ ok: false, error: "Ticket model not available" });
+
+        const ticketId = String(req.params.ticketId || "").trim();
+        const ticket = ticketId
+          ? await TicketModel.findById(ticketId).lean()
+          : null;
+        if (!ticket)
+          return res.status(404).json({ ok: false, error: "Ticket not found" });
+
+        const guildId = String(
+          req.body?.guildId || ticket.guildId || "",
+        ).trim();
+        if (!guildId)
+          return res
+            .status(400)
+            .json({ ok: false, error: "guildId is required" });
+        if (String(ticket.guildId) !== guildId || !hasGuildAccess(req, guildId))
+          return res.status(403).json({ ok: false, error: "NO_GUILD_ACCESS" });
+
+        const priority = String(req.body?.priority || "normal").toLowerCase();
+        if (!["low", "normal", "high", "urgent"].includes(priority))
+          return res.status(400).json({ ok: false, error: "INVALID_PRIORITY" });
+
+        const rawAssigneeId = String(req.body?.assignedToId || "").trim();
+        if (rawAssigneeId && !/^\d{10,32}$/.test(rawAssigneeId))
+          return res.status(400).json({ ok: false, error: "INVALID_ASSIGNEE" });
+
+        const rawSlaHours = req.body?.slaHours;
+        const slaHours =
+          rawSlaHours === "" || rawSlaHours == null ? 0 : Number(rawSlaHours);
+        if (![0, 4, 8, 24, 48, 72].includes(slaHours))
+          return res.status(400).json({ ok: false, error: "INVALID_SLA" });
+
+        let assignedToName = null;
+        if (rawAssigneeId) {
+          const client = _getClient ? _getClient() : null;
+          const member = await resolveMember(client, guildId, rawAssigneeId);
+          if (!member)
+            return res
+              .status(400)
+              .json({ ok: false, error: "ASSIGNEE_NOT_IN_GUILD" });
+          assignedToName =
+            member.displayName ||
+            member.user?.globalName ||
+            member.user?.username ||
+            rawAssigneeId;
+        }
+
+        const now = new Date();
+        const actor =
+          (getActorFromRequest && getActorFromRequest(req)) || "dashboard";
+        await TicketModel.updateOne(
+          { _id: ticketId, guildId },
+          {
+            $set: {
+              assignedToId: rawAssigneeId || null,
+              assignedToName,
+              priority,
+              slaHours,
+              slaDueAt: slaHours
+                ? new Date(now.getTime() + slaHours * 60 * 60 * 1000)
+                : null,
+              metadataUpdatedAt: now,
+              metadataUpdatedById: String(actor),
+            },
+          },
+        );
+
+        const updatedTicket = await TicketModel.findById(ticketId).lean();
+        if (recordAudit) {
+          await recordAudit({
+            req,
+            action: "ticket.metadata.update",
+            guildId,
+            targetUserId: ticket.userId,
+            actor,
+            payload: { ticketId, priority, slaHours },
+          });
+        }
+
+        return res.json({ ok: true, ticket: updatedTicket });
+      } catch (err) {
+        return sendServerError(res, "POST /api/tickets/:ticketId/manage", err);
       }
     },
   );

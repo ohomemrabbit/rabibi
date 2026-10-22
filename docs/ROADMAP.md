@@ -21,10 +21,10 @@ Não é um compromisso rígido, mas um guia de prioridades.
 - Exportação de utilizadores: ✅ – `GET /api/guilds/:guildId/users/export` (CSV/JSON, `MAX_EXPORT=10000`) e botões `#btnExportUsersCsv`/`#btnExportUsersJson` em `public/js/dashboard.users.js`.
 - Painel de auditoria: ✅ – `GET /api/audit` (filtros `guildId`/`action`/`search` + paginação), módulo `public/js/dashboard.audit.js` e secção `#config-section-audit` na aba Configuração.
 - Histórico de giveaways: ✅ – `GET /api/giveaways/history` (filtros `platform`/`search` + paginação) e secção `#giveawaysHistorySection` em `public/js/dashboard.giveaways.js`.
-- Inventário de servidores e gestão global: ✅ – estados de presença do bot e acesso de gestão explícitos; resumo operacional com ligação Discord/BD, servidores e ações recentes; controlos globais de manutenção exclusivos do dono do bot.
+- Inventário de servidores e gestão global: ✅ – estados de presença do bot e acesso de gestão explícitos; resumo operacional com ligação Discord/BD, servidores e ações recentes; checklist e diagnóstico das features ativas por servidor; alertas de licenças Premium perto da expiração; controlos globais de manutenção exclusivos do dono do bot.
 - Menu da conta: ✅ – o perfil abre um menu unificado com Painel, Tema, Densidade, Conta e Sair.
-- Navegação orientada por tarefas e checklist de onboarding por servidor. ⏳
-- Gestão avançada de tickets: ⏳ – atribuição, prioridade, etiquetas, SLA, transcrições e histórico completo ainda não estão disponíveis; a dashboard já permite listar, responder, fechar e reabrir.
+- Navegação orientada por tarefas e checklist de onboarding por servidor: ✅ – Visão geral mostra estado do bot, canal de logs, cargos de staff, canal de Tickets e configuração de features; apresenta diagnósticos das features ativas.
+- Gestão avançada de tickets: 🟡 – atribuição a membro, prioridade e SLA configuráveis na dashboard; etiquetas, transcrições e histórico completo continuam pendentes. A dashboard permite listar, responder, fechar e reabrir.
 
 ## 2. Arquitetura da Dashboard
 
@@ -63,9 +63,10 @@ Não é um compromisso rígido, mas um guia de prioridades.
   - Regra definida: média de Trust do servidor ≤ `lowThreshold` ⇒ automoderação mais rígida (`strictDelta`, −1 warn); ≥ `highThreshold` ⇒ mais tolerante (`lenientDelta`, +1 warn); entre os dois, neutro. Amostras abaixo de `minSampleSize` (5) nunca ajustam, para não reagir a servidores com poucos dados.
   - Helpers puros `getAdaptiveAutomodAdjustment`/`getAdaptiveMaxWarnings` em `src/utils/trust.js`; agregado memoizado (TTL 5 min) em `warningsService.getGuildAverageTrust`; aplicado em `src/systems/autoModeration.js` sobre o limite já ajustado pelo Trust do utilizador (com piso de 1 warn).
 - Configuração e simulação AutoMod por servidor: ✅ – listas PT/EN, limiar de avisos e duração de timeout são definidos por servidor; a feature fica desligada até ser configurada na tab Funcionalidades, e a simulação usa o rascunho sem persistir ou executar ações.
-- Regras AutoMod por servidor: ⏳ – exceções por cargo/canal e um fluxo de simulação para mensagens reais ainda precisam de implementação.
+- Regras AutoMod por servidor: ⏳ – exceções por cargo/canal, listas de permissões para links/domínios e métricas de falsos positivos ainda precisam de implementação.
 - Anti-spam por servidor: ✅ – limites, strikes e duração/cooldown são configuráveis na feature `antiSpam`; fica desligada até configuração explícita e não herda overrides globais por canal ou cargo.
-- Proteção contra raids: ⏳ – deteção de picos de entradas, verificação temporária e alertas à equipa.
+- Proteção contra raids: ⏳ – deteção de picos de entradas, idade da conta, modo de verificação temporário, limite de menções e alerta à equipa; incluir limites por servidor e salvaguardas contra falsos positivos.
+- Revisão de casos: ⏳ – permitir que membros contestem uma ação e que a equipa acompanhe o recurso sem expor dados sensíveis num canal público.
 - Giveaways nativos: ⏳ – criação de campanhas, seleção e novo sorteio de vencedores; o módulo atual publica ofertas do GamerPower.
 - Progressão de níveis: ⏳ – cargos de recompensa e mecanismos de proteção contra farming.
 
@@ -112,6 +113,14 @@ Não é um compromisso rígido, mas um guia de prioridades.
 - Cargos por reação: ✅ – correspondência de emojis centralizada em `systems/reactionRoles.js` (`emojiMatches`/`toReactable`/`resolveShortcodes`), aceitando glifos Unicode, `<:nome:id>` e atalhos `:nome:` (resolvidos para o id do emoji do servidor ao guardar). Os handlers `messageReactionAdd`/`messageReactionRemove` usam o mesmo módulo e o teste avisa quando o bot não consegue atribuir os cargos (permissão/hierarquia).
 - Extras uniformizado: ✅ – a aba Extras deixou de usar subtabs e passou a usar a grelha de cartões `.features-grid` com painéis colapsáveis (`.feature-card`), o mesmo padrão da aba Funcionalidades.
 - Estatísticas do servidor: ✅ – ao desligar, os canais são removidos (`removeGuild` lê os IDs da base de dados quando o payload os omite) e `POST /api/features` devolve os IDs efetivamente persistidos, evitando canais duplicados ao usar “Testar”.
+- Alertas Twitch: 🟡 – atualmente consulta um canal por servidor a cada 30 segundos, em sequência, e guarda a deduplicação em memória. Próximos passos: vários canais por servidor, consulta Helix em lote ou EventSub quando houver endpoint público, estado persistente, política de retry e filtros por categoria/idioma.
+
+## 8. Música no Discord (proposta)
+
+- UX esperada: comandos de pesquisa/reprodução, fila por servidor, faixa atual, pausa/retoma, salto, repetição, aleatório, playlists e permissões de DJ.
+- Arquitetura: sessões isoladas por servidor; adaptadores de fontes explícitas; fila e estado testáveis independentemente da ligação de voz; reconexão e limpeza ao sair do canal.
+- Decisão de fontes é pré-requisito: aceitar apenas APIs, catálogos licenciados ou streams diretos autorizados. Não implementar extração/scraping de áudio do YouTube nem contornar restrições do serviço; consultar os [termos do YouTube](https://www.youtube.com/t/terms) e a [documentação de ligações de voz do Discord](https://docs.discord.com/developers/topics/voice-connections) antes de escolher dependências.
+- Verificar suporte, manutenção e licenças das bibliotecas de voz antes de adicionar dependências; o projeto atualmente não inclui um player de voz.
 
 Este roadmap serve como referência.  
 A cada alteração maior (por exemplo, refactor de um módulo ou adição de uma funcionalidade), recomenda-se atualizar este ficheiro para manter alinhamento entre o código real e os objetivos do projeto.

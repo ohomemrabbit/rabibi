@@ -486,11 +486,28 @@
     var activeCount = adminGuilds.filter(function (item) {
       return item.active === true;
     }).length;
+    var now = Date.now();
+    var expiringSoonCount = adminGuilds.filter(function (item) {
+      var until = item.until ? new Date(item.until).getTime() : NaN;
+      return (
+        item.active === true &&
+        Number.isFinite(until) &&
+        until >= now &&
+        until <= now + 30 * 24 * 60 * 60 * 1000
+      );
+    }).length;
     if (summary) {
       summary.textContent = t("premium_admin_summary", {
         active: activeCount.toLocaleString(NS.state.lang),
         total: adminGuilds.length.toLocaleString(NS.state.lang),
       });
+      if (expiringSoonCount) {
+        summary.textContent +=
+          " · " +
+          t("premium_admin_expiring_soon_summary", {
+            count: expiringSoonCount.toLocaleString(NS.state.lang),
+          });
+      }
     }
     var items = adminGuilds.filter(function (item) {
       var matchesStatus =
@@ -543,6 +560,20 @@
           : t("premium_admin_disabled");
       summary.appendChild(title);
       summary.appendChild(state);
+      var untilTime = item.until ? new Date(item.until).getTime() : NaN;
+      if (
+        item.active === true &&
+        Number.isFinite(untilTime) &&
+        untilTime >= Date.now() &&
+        untilTime <= Date.now() + 30 * 24 * 60 * 60 * 1000
+      ) {
+        var expiry = document.createElement("span");
+        expiry.className = "premium-status premium-status--warning";
+        expiry.textContent = t("premium_admin_expires_in", {
+          days: String(Math.ceil((untilTime - Date.now()) / 86400000)),
+        });
+        summary.appendChild(expiry);
+      }
       row.appendChild(summary);
       var guildMeta = document.createElement("dl");
       guildMeta.className = "premium-guild-row__meta";

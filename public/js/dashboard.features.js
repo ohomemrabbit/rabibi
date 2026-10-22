@@ -1244,10 +1244,12 @@
       if (!result || result.ok === false || !result.diagnosis) {
         throw new Error((result && result.error) || "DIAGNOSIS_FAILED");
       }
+      if (guildId() !== gid) return;
       diagnosisResults[resultKey] = result.diagnosis;
       persistDiagnosisResults();
       renderDiagnosis(card, result.diagnosis);
     } catch (err) {
+      if (guildId() !== gid) return;
       console.error("Feature diagnosis error", err);
       diagnosisResults[resultKey] = {
         status: "error",
@@ -2224,6 +2226,15 @@
           current[feature.key] = { enabled: false };
       });
       render();
+      FEATURES.forEach(function (feature) {
+        if (
+          configuredFeatures[feature.key] === true &&
+          current[feature.key] &&
+          current[feature.key].enabled === true
+        ) {
+          diagnoseFeature(feature.key);
+        }
+      });
     } catch (err) {
       console.error("Features load error", err);
       notify(t("features_load_error"), { type: "error" });

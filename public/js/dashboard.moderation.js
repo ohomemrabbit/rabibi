@@ -74,7 +74,9 @@
     if (typeSelect && typeof prefs.type === "string")
       typeSelect.value = prefs.type;
     if (limitSelect && typeof prefs.limit === "number")
-      limitSelect.value = String(prefs.limit);
+      limitSelect.value = [5, 10, 20].includes(prefs.limit)
+        ? String(prefs.limit)
+        : "10";
     if (sortSelect && (prefs.sort === "oldest" || prefs.sort === "newest"))
       sortSelect.value = prefs.sort;
     if (fromInput && typeof prefs.from === "string")
@@ -133,8 +135,10 @@
     const limitSelect = document.getElementById("logLimit");
     const sortSelect = document.getElementById("logSort");
     const btnLoadMore = document.getElementById("btnLogsLoadMore");
+    const resultsDisclosure = document.getElementById("logsResultsDisclosure");
 
     if (!listEl || !typeSelect) return;
+    if (resultsDisclosure && !resultsDisclosure.open) return;
 
     function setLoadMoreVisible(visible) {
       if (!btnLoadMore) return;
@@ -589,6 +593,13 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    const resultsDisclosure = document.getElementById("logsResultsDisclosure");
+    if (resultsDisclosure) {
+      resultsDisclosure.addEventListener("toggle", function () {
+        if (resultsDisclosure.open) loadLogs().catch(function () {});
+      });
+    }
+
     const unbanForm = document.getElementById("moderationUnbanForm");
     if (unbanForm) {
       unbanForm.addEventListener("submit", function (event) {

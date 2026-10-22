@@ -97,13 +97,20 @@
           ? t("tickets_status_closed")
           : t("tickets_status_open");
       const created = fmtDate(it.createdAt);
+      const priorityLabels = {
+        low: t("tickets_priority_low"),
+        normal: t("tickets_priority_normal"),
+        high: t("tickets_priority_high"),
+        urgent: t("tickets_priority_urgent"),
+      };
+      const priority = priorityLabels[it.priority] || priorityLabels.normal;
 
       row.innerHTML = `
         <div class="user-row-header">
           <div class="title">#${escapeHtml(num)} • ${escapeHtml(subject)}</div>
           <div class="user-type-badge ${it.status === "closed" ? "bot" : "human"}">${escapeHtml(status)}</div>
         </div>
-        <div class="subtitle">${escapeHtml(username)}${created ? " • " + escapeHtml(created) : ""}</div>
+        <div class="subtitle">${escapeHtml(username)}${created ? " • " + escapeHtml(created) : ""} • ${escapeHtml(priority)}</div>
       `;
 
       row.addEventListener("click", () => {
@@ -195,6 +202,32 @@
         : t("tickets_status_open");
     const created = fmtDate(ticket.createdAt);
     const closedAt = fmtDate(ticket.closedAt);
+    const dueAt = ticket.slaDueAt ? new Date(ticket.slaDueAt) : null;
+    const overdue =
+      ticket.status !== "closed" &&
+      dueAt &&
+      !Number.isNaN(dueAt.getTime()) &&
+      dueAt.getTime() < Date.now();
+    const slaLabel =
+      dueAt && !Number.isNaN(dueAt.getTime())
+        ? overdue
+          ? t("tickets_sla_overdue")
+          : t("tickets_sla_due", { date: fmtDate(dueAt) })
+        : t("tickets_sla_none");
+    const priorityValue = ["low", "normal", "high", "urgent"].includes(
+      ticket.priority,
+    )
+      ? ticket.priority
+      : "normal";
+    const slaHours = [0, 4, 8, 24, 48, 72].includes(Number(ticket.slaHours))
+      ? Number(ticket.slaHours)
+      : 0;
+    const priorityOptions = [
+      { value: "low", label: t("tickets_priority_low") },
+      { value: "normal", label: t("tickets_priority_normal") },
+      { value: "high", label: t("tickets_priority_high") },
+      { value: "urgent", label: t("tickets_priority_urgent") },
+    ];
 
     const canClose = ticket.status !== "closed";
     const canReopen = ticket.status === "closed";
@@ -210,9 +243,34 @@
         <div class="ticket-detail-meta">
           <div class="badge">${escapeHtml(t("tickets_detail_user"))}: ${escapeHtml(username)}</div>
           <div class="badge">${escapeHtml(t("tickets_detail_created"))}: ${escapeHtml(created || "-")}</div>
+          <div class="badge">${escapeHtml(t("tickets_assignment"))}: ${escapeHtml(ticket.assignedToName || ticket.assignedToId || t("tickets_unassigned"))}</div>
+          <div class="badge ${overdue ? "ticket-sla-overdue" : ""}">${escapeHtml(slaLabel)}</div>
           ${closedAt ? `<div class="badge">${escapeHtml(t("tickets_detail_closed"))}: ${escapeHtml(closedAt)}</div>` : ""}
         </div>
       </div>
+
+      <form class="ticket-management-form" id="ticketManagementForm">
+        <label class="field">
+          <span>${escapeHtml(t("tickets_assignee_id"))}</span>
+          <input class="input" id="ticketAssigneeId" type="text" inputmode="numeric" pattern="[0-9]{10,32}" maxlength="32" value="${escapeHtml(ticket.assignedToId || "")}" placeholder="${escapeHtml(t("tickets_assignee_placeholder"))}" />
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("tickets_priority"))}</span>
+          <select class="select" id="ticketPriority">
+            ${priorityOptions.map(({ value, label }) => `<option value="${value}"${value === priorityValue ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("tickets_sla"))}</span>
+          <select class="select" id="ticketSlaHours">
+            ${[0, 4, 8, 24, 48, 72].map((hours) => `<option value="${hours}"${hours === slaHours ? " selected" : ""}>${escapeHtml(hours ? t("tickets_sla_hours", { hours }) : t("tickets_sla_none"))}</option>`).join("")}
+          </select>
+        </label>
+        <div class="ticket-management-form__actions">
+          <button class="btn xs" type="submit">${escapeHtml(t("tickets_save_management"))}</button>
+          <span class="hint" id="ticketManagementStatus" role="status" aria-live="polite"></span>
+        </div>
+      </form>
 
       <div class="history-section user-actions">
         <h3>${escapeHtml(t("tickets_detail_actions"))}</h3>
@@ -253,6 +311,54 @@
 
     const guildId = getGuildId();
     const ticketId = ticket._id;
+
+    const managementForm = panel.querySelector("#ticketManagementForm");
+    if (managementForm) {
+      managementForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const submit = managementForm.querySelector('button[type="submit"]');
+        const status = panel.querySelector("#ticketManagementStatus");
+        if (submit) submit.disabled = true;
+        if (status) status.textContent = t("premium_admin_saving");
+        try {
+          const result = await apiPost(
+            `/tickets/${encodeURIComponent(ticketId)}/manage`,
+            {
+              guildId,
+              assignedToId: panel
+                .querySelector("#ticketAssigneeId")
+                .value.trim(),
+              priority: panel.querySelector("#ticketPriority").value,
+              slaHours: Number(panel.querySelector("#ticketSlaHours").value),
+            },
+          );
+          if (!result || result.ok === false || !result.ticket)
+            throw new Error((result && result.error) || "TICKET_UPDATE_FAILED");
+
+          Object.assign(ticket, result.ticket);
+          const items = Array.isArray(state.ticketsItems)
+            ? state.ticketsItems
+            : [];
+          const index = items.findIndex(
+            (item) => String(item._id) === String(ticketId),
+          );
+          if (index >= 0) {
+            items[index] = ticket;
+            renderList(items);
+            setListActive(index);
+          }
+          toast(t("tickets_management_saved"), { type: "success" });
+          renderDetail(ticket);
+        } catch (error) {
+          console.error("Ticket metadata update error", error);
+          if (status)
+            status.textContent =
+              error?.apiMessage || t("tickets_management_error");
+        } finally {
+          if (submit && submit.isConnected) submit.disabled = false;
+        }
+      });
+    }
 
     async function loadAndRenderMessages() {
       const box = panel.querySelector("#ticketsMessagesBox");
